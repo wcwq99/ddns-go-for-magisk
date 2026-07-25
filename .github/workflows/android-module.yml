@@ -118,8 +118,6 @@ jobs:
             cp -f "$ROOT/dg/start.sh" "$stage/dg/"
             cp -f "$ROOT/dg/stop.sh" "$stage/dg/"
             cp -f "$ROOT/dg/restart.sh" "$stage/dg/"
-            cp -f "$ROOT/dg/update.sh" "$stage/dg/"
-            cp -f "$ROOT/dg/menu.sh" "$stage/dg/"
             cp -f "$bin_path" "$stage/dg/bin/ddns-go"
             chmod 755 "$stage/dg/bin/ddns-go"
             cat >"$stage/module.prop" <<EOF
@@ -128,9 +126,8 @@ jobs:
           version=${MODULE_VER}
           versionCode=${MODULE_CODE}
           author=wcwq99
-          description=ddns-go Magisk abi=${abi}. Core: ${CORE_REPO} ${CORE_VER} ${core_arch}. menu: /data/adb/ddns-go/menu.sh
+          description=ddns-go Magisk abi=${abi}. Core: ${CORE_REPO} ${CORE_VER} ${core_arch}. start: /data/adb/ddns-go/start.sh
           EOF
-            # fix accidental leading spaces from heredoc indent
             sed -i 's/^[[:space:]]*//' "$stage/module.prop"
             cat >"$stage/dg/core.version" <<EOF
           core_repo=${CORE_REPO}
@@ -147,13 +144,12 @@ jobs:
                 module.prop customize.sh service.sh uninstall.sh README.md \
                 META-INF/com/google/android/update-binary \
                 META-INF/com/google/android/updater-script \
-                dg/dg.sh dg/start.sh dg/stop.sh dg/restart.sh dg/update.sh dg/menu.sh \
+                dg/dg.sh dg/start.sh dg/stop.sh dg/restart.sh \
                 dg/core.version dg/bin/ddns-go
             )
             echo "[OK] $zip_out ($(wc -c <"$zip_out") bytes)"
           }
 
-          # arm64: official android_arm64
           ASSET="ddns-go_${CORE_VER_NUM}_android_arm64.tar.gz"
           GH_URL="https://github.com/${CORE_REPO}/releases/download/${CORE_VER}/${ASSET}"
           TGZ="$WORK/$ASSET"
@@ -166,7 +162,6 @@ jobs:
           [ -n "$BIN64" ] && [ -f "$BIN64" ] || { echo "[ERR] binary not in $ASSET" >&2; exit 1; }
           pack_one "arm64" "android_arm64" "github_release_android_arm64" "$BIN64"
 
-          # armv7a: NDK cross compile (upstream has no android_arm)
           CLANG="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi${ANDROID_API}-clang"
           [ -x "$CLANG" ] || { echo "[ERR] NDK clang missing: $CLANG" >&2; exit 1; }
           echo "[*] NDK=$ANDROID_NDK_HOME"
@@ -193,7 +188,7 @@ jobs:
           artifacts:
             ddns-go-android-arm64.zip
             ddns-go-android-armv7a.zip
-          note: cloud-only packaging via GitHub Actions. Install only ONE abi package (id=ddns-go).
+          note: binary bundled in zip. Install only ONE abi package (id=ddns-go).
           EOF
           sed -i 's/^[[:space:]]*//' "$DIST/build-manifest.txt"
           ls -lh "$DIST"/ddns-go-android-*.zip
