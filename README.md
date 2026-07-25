@@ -13,9 +13,9 @@
 
 ## Core 从哪来？
 
-| ABI | 来源 |
-|-----|------|
-| **arm64** | GitHub 官方 `android_arm64`，CI 下载后打进 zip |
+| ABI        | 来源                                               |
+| ---------- | -------------------------------------------------- |
+| **arm64**  | GitHub 官方 `android_arm64`，CI 下载后打进 zip     |
 | **armv7a** | 上游无 `android_arm`；CI 用 NDK 交叉编译后打进 zip |
 
 产物（[Releases](../../releases)）：
@@ -77,5 +77,7 @@ dg/  dg.sh start.sh stop.sh restart.sh
 
 ## Credits
 
+- [ddns-go-for-magisk-YHLT](https://github.com/Jian-lun/ddns-go-for-magisk-YHLT) 原项目
 - [jeessy2/ddns-go](https://github.com/jeessy2/ddns-go)
 - [wcwq99/sing-box](https://github.com/wcwq99/sing-box) Android module 结构参考
+

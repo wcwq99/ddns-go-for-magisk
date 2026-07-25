@@ -1,6 +1,6 @@
 id=ddns-go
-name=ddns-go
+name=ddns-go 模块
 version=v1.0.0
 versionCode=100
 author=wcwq99
-description=ddns-go Magisk module (arm64/armv7a). start: /data/adb/ddns-go/start.sh
+description=ddns-go 模块 (arm64/armv7a). 项目地址：https://github.com/wcwq99/ddns-go-for-magisk 默认地址: http://127.0.0.1:9876
