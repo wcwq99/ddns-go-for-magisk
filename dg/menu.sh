@@ -121,7 +121,7 @@ _menu_help() {
 
 更新说明:
   arm64: GitHub 官方 android_arm64, 直连失败可填代理 (默认 https://ghfast.top/)
-  armv7a: 上游无官方 android_arm, 需重刷 build-release 产物
+  armv7a: 上游无官方 android_arm, 需重刷 CI Release 产物
   示例最终 URL (arm64):
     https://ghfast.top/https://github.com/jeessy2/ddns-go/releases/download/vX.Y.Z/ddns-go_X.Y.Z_android_arm64.tar.gz
 

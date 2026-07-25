@@ -1,7 +1,7 @@
 # ddns-go Magisk Module (Android arm64 / armv7a)
 
 面向 **Android 6+ / Magisk** 的 [ddns-go](https://github.com/jeessy2/ddns-go) 后台运行模块。  
-结构参考 [wcwq99/sing-box](https://github.com/wcwq99/sing-box) 的 Android 模块设计：固定目录 + 管理脚本 + 打包内置 binary。
+结构参考 [wcwq99/sing-box](https://github.com/wcwq99/sing-box) 的 Android 模块设计：固定目录 + 管理脚本 + 云端打包内置 binary。
 
 ## 特性
 
@@ -22,10 +22,10 @@
 
 > 不要用 `linux_arm64` / `linux_armv7`（glibc），在 Android 上会直接无法启动。
 
-产物：
+产物（GitHub Releases / Actions Artifact）：
 
-- `dist/ddns-go-android-arm64.zip`
-- `dist/ddns-go-android-armv7a.zip`
+- `ddns-go-android-arm64.zip`
+- `ddns-go-android-armv7a.zip`
 
 ## 目录结构
 
@@ -42,9 +42,7 @@
 
 ## 安装
 
-### 方式 A：Magisk 刷入（推荐）
-
-**正式包只在云端（GitHub Actions）打包**，本地不交叉编译。
+**正式包只在云端（GitHub Actions）打包**，仓库内不保留本地 build/pack 脚本。
 
 1. 推送 `main` 后自动触发 `Android Module` workflow；也可在 Actions 里手动 Run workflow  
 2. 从 [Releases](../../releases) 或 Actions Artifact 下载：
@@ -60,21 +58,6 @@ sh /data/adb/ddns-go/start.sh
 ```
 
 > **只装一个 ABI 包**。两个 zip 的 Magisk `id` 相同（`ddns-go`），后装覆盖前装。  
-> 本地 `.\build-release.ps1` 仅提示走云端；`build-release.sh` 给 CI 使用（需 NDK）。
-
-### 方式 B：无 core 脚本包 + 手机端 update（仅 arm64）
-
-```powershell
-.\pack.ps1   # 生成 dist/ddns-go-android-nocore.zip（调试用，无 binary）
-```
-
-刷入后（**arm64 设备**）：
-
-```bash
-sh /data/adb/ddns-go/update.sh
-sh /data/adb/ddns-go/start.sh
-```
-
 > armv7a 无法从 GitHub 在线更新官方 android 包，请刷 CI 产物。
 
 ## 使用
@@ -162,11 +145,7 @@ ddns-go-for-magisk/
   META-INF/com/google/android/...
   dg/
     dg.sh menu.sh start.sh stop.sh restart.sh update.sh
-    bin/ddns-go          # 仅正式包存在
-  pack.ps1 / pack.sh              # 本地仅脚本包（无 binary）
-  build-release.sh                # 仅 CI 云端双架构打包
-  build-release.ps1               # 本地禁用，提示走 Actions
-  .github/workflows/android-module.yml
+  .github/workflows/android-module.yml   # 云端双架构打包 + Release
 ```
 
 ## Credits

@@ -20,10 +20,6 @@ on:
       - "service.sh"
       - "uninstall.sh"
       - "module.prop"
-      - "build-release.sh"
-      - "build-release.ps1"
-      - "pack.sh"
-      - "pack.ps1"
       - "README.md"
       - ".github/workflows/android-module.yml"
 
@@ -42,7 +38,6 @@ jobs:
         with:
           go-version: "1.25.x"
 
-      # armv7a: GOOS=android GOARCH=arm needs NDK external linking
       - name: setup Android NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
@@ -77,17 +72,132 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "module=$MODULE_VER code=$MODULE_CODE tag=$TAG core=${CORE_VER:-latest}"
 
-      - name: build arm64 + armv7a zips (cloud only)
+      - name: build arm64 + armv7a zips
         env:
           MODULE_VER: ${{ steps.ver.outputs.module_ver }}
           MODULE_CODE: ${{ steps.ver.outputs.module_code }}
           CORE_VER: ${{ steps.ver.outputs.core_ver }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          CORE_REPO: jeessy2/ddns-go
+          ANDROID_API: "21"
         run: |
           set -euo pipefail
-          chmod +x build-release.sh
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          ./build-release.sh
+          ROOT="$GITHUB_WORKSPACE"
+          DIST="$ROOT/dist"
+          WORK="$ROOT/.build"
+          rm -rf "$WORK" "$DIST"
+          mkdir -p "$WORK" "$DIST"
+
+          if [ -z "${CORE_VER}" ]; then
+            echo "[*] resolve latest core from GitHub..."
+            CORE_VER=$(curl -fsSL -H "User-Agent: ddns-go-magisk-build" \
+              "https://api.github.com/repos/${CORE_REPO}/releases/latest" \
+              | grep -oE '"tag_name":[[:space:]]*"[^"]+"' \
+              | head -1 \
+              | sed 's/.*"\(v[^"]*\)".*/\1/')
+          fi
+          [ -n "$CORE_VER" ] || { echo "[ERR] cannot resolve core version" >&2; exit 1; }
+          CORE_VER_NUM="${CORE_VER#v}"
+          CORE_VER="v${CORE_VER_NUM}"
+          echo "[*] module=${MODULE_VER} core=${CORE_VER}"
+
+          pack_one() {
+            local abi="$1" core_arch="$2" source_note="$3" bin_path="$4"
+            local stage="$WORK/stage-${abi}"
+            local zip_out="$DIST/ddns-go-android-${abi}.zip"
+            echo "[*] pack ${abi} (${core_arch})"
+            rm -rf "$stage"
+            mkdir -p "$stage/META-INF/com/google/android" "$stage/dg/bin"
+            cp -f "$ROOT/customize.sh" "$stage/"
+            cp -f "$ROOT/service.sh" "$stage/"
+            cp -f "$ROOT/uninstall.sh" "$stage/"
+            cp -f "$ROOT/README.md" "$stage/"
+            cp -f "$ROOT/META-INF/com/google/android/update-binary" "$stage/META-INF/com/google/android/"
+            cp -f "$ROOT/META-INF/com/google/android/updater-script" "$stage/META-INF/com/google/android/"
+            cp -f "$ROOT/dg/dg.sh" "$stage/dg/"
+            cp -f "$ROOT/dg/start.sh" "$stage/dg/"
+            cp -f "$ROOT/dg/stop.sh" "$stage/dg/"
+            cp -f "$ROOT/dg/restart.sh" "$stage/dg/"
+            cp -f "$ROOT/dg/update.sh" "$stage/dg/"
+            cp -f "$ROOT/dg/menu.sh" "$stage/dg/"
+            cp -f "$bin_path" "$stage/dg/bin/ddns-go"
+            chmod 755 "$stage/dg/bin/ddns-go"
+            cat >"$stage/module.prop" <<EOF
+          id=ddns-go
+          name=ddns-go
+          version=${MODULE_VER}
+          versionCode=${MODULE_CODE}
+          author=wcwq99
+          description=ddns-go Magisk abi=${abi}. Core: ${CORE_REPO} ${CORE_VER} ${core_arch}. menu: /data/adb/ddns-go/menu.sh
+          EOF
+            # fix accidental leading spaces from heredoc indent
+            sed -i 's/^[[:space:]]*//' "$stage/module.prop"
+            cat >"$stage/dg/core.version" <<EOF
+          core_repo=${CORE_REPO}
+          core_version=${CORE_VER}
+          core_arch=${core_arch}
+          module_abi=${abi}
+          bundled=1
+          source=${source_note}
+          EOF
+            sed -i 's/^[[:space:]]*//' "$stage/dg/core.version"
+            (
+              cd "$stage"
+              zip -r9 "$zip_out" \
+                module.prop customize.sh service.sh uninstall.sh README.md \
+                META-INF/com/google/android/update-binary \
+                META-INF/com/google/android/updater-script \
+                dg/dg.sh dg/start.sh dg/stop.sh dg/restart.sh dg/update.sh dg/menu.sh \
+                dg/core.version dg/bin/ddns-go
+            )
+            echo "[OK] $zip_out ($(wc -c <"$zip_out") bytes)"
+          }
+
+          # arm64: official android_arm64
+          ASSET="ddns-go_${CORE_VER_NUM}_android_arm64.tar.gz"
+          GH_URL="https://github.com/${CORE_REPO}/releases/download/${CORE_VER}/${ASSET}"
+          TGZ="$WORK/$ASSET"
+          echo "[*] download $GH_URL"
+          curl -fL --retry 3 --retry-delay 2 -o "$TGZ" "$GH_URL"
+          EXTRACT="$WORK/extract-arm64"
+          mkdir -p "$EXTRACT"
+          tar -xzf "$TGZ" -C "$EXTRACT"
+          BIN64="$(find "$EXTRACT" -type f -name ddns-go | head -1)"
+          [ -n "$BIN64" ] && [ -f "$BIN64" ] || { echo "[ERR] binary not in $ASSET" >&2; exit 1; }
+          pack_one "arm64" "android_arm64" "github_release_android_arm64" "$BIN64"
+
+          # armv7a: NDK cross compile (upstream has no android_arm)
+          CLANG="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi${ANDROID_API}-clang"
+          [ -x "$CLANG" ] || { echo "[ERR] NDK clang missing: $CLANG" >&2; exit 1; }
+          echo "[*] NDK=$ANDROID_NDK_HOME"
+          echo "[*] CC=$CLANG"
+          SRC="$WORK/src"
+          git clone --depth 1 --branch "$CORE_VER" "https://github.com/${CORE_REPO}.git" "$SRC"
+          BIN32="$WORK/ddns-go-armv7a"
+          (
+            cd "$SRC"
+            export CGO_ENABLED=1 GOOS=android GOARCH=arm GOARM=7
+            export CC="$CLANG" CXX="${CLANG}++"
+            go build -trimpath -ldflags "-s -w -X main.version=${CORE_VER}" -o "$BIN32" .
+          )
+          [ -f "$BIN32" ] || { echo "[ERR] armv7a build failed" >&2; exit 1; }
+          file "$BIN32" || true
+          pack_one "armv7a" "android_armv7" "ci_ndk_goos_android_goarch_arm_goarm7" "$BIN32"
+
+          cat >"$DIST/build-manifest.txt" <<EOF
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          module_version=${MODULE_VER}
+          module_version_code=${MODULE_CODE}
+          core_repo=${CORE_REPO}
+          core_version=${CORE_VER}
+          artifacts:
+            ddns-go-android-arm64.zip
+            ddns-go-android-armv7a.zip
+          note: cloud-only packaging via GitHub Actions. Install only ONE abi package (id=ddns-go).
+          EOF
+          sed -i 's/^[[:space:]]*//' "$DIST/build-manifest.txt"
+          ls -lh "$DIST"/ddns-go-android-*.zip
+          cat "$DIST/build-manifest.txt"
 
       - name: upload artifacts
         uses: actions/upload-artifact@v4

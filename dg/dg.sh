@@ -473,10 +473,8 @@ cmd_update() {
       # upstream goreleaser ignores android/arm — no official asset
       rm -rf "$DG_TMP/update-$$" 2>/dev/null
       _err "GitHub 官方无 android_arm (armv7a) 资源。
-armv7a 包是在电脑/CI 用 GOOS=android GOARCH=arm GOARM=7 交叉编译后打进 zip 的。
-请重新刷入新的 dist/ddns-go-android-armv7a.zip，或在电脑执行:
-  .\\build-release.ps1
-  ./build-release.sh"
+armv7a 包仅由 GitHub Actions 用 NDK 交叉编译并发布。
+请重新刷入 Releases 中的 ddns-go-android-armv7a.zip。"
       ;;
     *)
       arch="android_arm64"
