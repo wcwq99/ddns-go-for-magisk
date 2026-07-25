@@ -1,11 +1,25 @@
 #!/system/bin/sh
-# Magisk module uninstall: keep config by default
-# Data at /data/adb/ddns-go is intentionally kept so reinstall restores configs.
-# To wipe fully after uninstall:
-#   rm -rf /data/adb/ddns-go
+# Magisk module uninstall: stop process and remove runtime data fully
 
-if [ -f /data/adb/ddns-go/stop.sh ]; then
-  /system/bin/sh /data/adb/ddns-go/stop.sh >/dev/null 2>&1
-elif [ -f /data/adb/ddns-go/dg.sh ]; then
-  /system/bin/sh /data/adb/ddns-go/dg.sh stop >/dev/null 2>&1
+DG_HOME=/data/adb/ddns-go
+
+# stop process first
+if [ -f "$DG_HOME/stop.sh" ]; then
+  /system/bin/sh "$DG_HOME/stop.sh" >/dev/null 2>&1
+elif [ -f "$DG_HOME/dg.sh" ]; then
+  /system/bin/sh "$DG_HOME/dg.sh" stop >/dev/null 2>&1
 fi
+
+# kill leftover by binary path
+if [ -x "$DG_HOME/bin/ddns-go" ]; then
+  for d in /proc/[0-9]*; do
+    [ -r "$d/cmdline" ] || continue
+    if tr '\0' ' ' <"$d/cmdline" 2>/dev/null | grep -q "$DG_HOME/bin/ddns-go"; then
+      kill "${d##*/}" 2>/dev/null
+      kill -9 "${d##*/}" 2>/dev/null
+    fi
+  done
+fi
+
+# remove fixed home completely (scripts/binary/config/log)
+rm -rf "$DG_HOME"

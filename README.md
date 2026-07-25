@@ -60,11 +60,12 @@ sh /data/adb/ddns-go/dg.sh status
 
 ## 卸载
 
-卸载模块会停进程，**默认保留** `/data/adb/ddns-go`。彻底清理：
+Magisk 卸载模块时会：
 
-```bash
-rm -rf /data/adb/ddns-go
-```
+1. 停止 ddns-go 进程  
+2. **完整删除** `/data/adb/ddns-go`（脚本 / binary / 配置 / 日志）
+
+无需再手动 `rm -rf`。
 
 ## 仓库
 
