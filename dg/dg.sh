@@ -16,6 +16,7 @@ SCRIPT_VER="v1.0.0-android"
 
 DG_LISTEN="${DG_LISTEN:-0.0.0.0:9876}"
 DG_FREQ="${DG_FREQ:-300}"
+DG_DNS="${DG_DNS:-223.5.5.5}"
 
 _echo() { printf '%s\n' "$*"; }
 _err() { _echo "[ERR] $*" >&2; exit 1; }
@@ -110,6 +111,7 @@ cmd_status() {
   [ -f "$DG_CFG" ] && _info "config exists" || _warn "config not created yet (open web UI once)"
   _info "web: http://127.0.0.1:${DG_LISTEN##*:}"
   _info "listen: $DG_LISTEN"
+  _info "dns: $DG_DNS"
   _info "home: $DG_HOME"
 }
 
@@ -122,7 +124,7 @@ cmd_start() {
   fi
 
   rm -f "$PID_FILE"
-  "$DG_BIN" -l "$DG_LISTEN" -c "$DG_CFG" -f "$DG_FREQ" \
+  "$DG_BIN" -l "$DG_LISTEN" -c "$DG_CFG" -f "$DG_FREQ" -dns "$DG_DNS" \
     >"$DG_LOG/stdout.log" 2>&1 &
   echo $! >"$PID_FILE"
   sleep 1
@@ -209,6 +211,7 @@ Home:   $DG_HOME
 Binary: $DG_BIN  (bundled in module zip by CI)
 Config: $DG_CFG
 Listen: $DG_LISTEN
+DNS:    $DG_DNS  (override: DG_DNS=8.8.8.8)
 
 用法: sh $DG_HOME/dg.sh <command>
   start | stop | restart | status | log | config

@@ -39,6 +39,6 @@ fi
 
 mkdir -p "$DG_HOME/log" "$DG_HOME/tmp" "$DG_HOME/config"
 CFG="$DG_HOME/config/ddns_go_config.yaml"
-"$DG_BIN" -l 0.0.0.0:9876 -c "$CFG" \
+"$DG_BIN" -l 0.0.0.0:9876 -c "$CFG" -f 300 -dns 223.5.5.5 \
   >"$DG_HOME/log/stdout.log" 2>&1 &
 echo $! >"$PID_FILE"

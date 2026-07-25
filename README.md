@@ -56,7 +56,7 @@ sh /data/adb/ddns-go/dg.sh status
 - 本机：`http://127.0.0.1:9876`
 - 配置：`/data/adb/ddns-go/config/ddns_go_config.yaml`
 
-可选环境变量：`DG_LISTEN`（默认 `0.0.0.0:9876`）、`DG_FREQ`（默认 `300`）。
+可选环境变量：`DG_LISTEN`（默认 `0.0.0.0:9876`）、`DG_FREQ`（默认 `300`）、`DG_DNS`（默认 `223.5.5.5`）。
 
 ## 卸载
 
