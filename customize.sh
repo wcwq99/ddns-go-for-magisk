@@ -5,9 +5,9 @@
 
 SKIPUNZIP=0
 
-ui_print "- install ddns-go Magisk module"
-ui_print "- module id: ddns-go (arm64/armv7a 共用, 只装一个)"
-ui_print "- fixed path: /data/adb/ddns-go"
+ui_print "- 正在安装 ddns-go Magisk 模块"
+ui_print "- 模块 id: ddns-go (arm64/armv7a 共用, 只装一个)"
+ui_print "- 固定目录: /data/adb/ddns-go"
 
 mkdir -p /data/adb/ddns-go/bin \
   /data/adb/ddns-go/config \
@@ -23,7 +23,7 @@ for d in \
   /data/adb/modules_update/ddns-go-armv7a
 do
   if [ -d "$d" ]; then
-    ui_print "- remove stale module dir: $d"
+    ui_print "- 清理旧模块目录: $d"
     rm -rf "$d"
   fi
 done
@@ -61,22 +61,22 @@ fi
 if [ -n "$BIN_SRC" ]; then
   cp -f "$BIN_SRC" /data/adb/ddns-go/bin/ddns-go
   chmod 755 /data/adb/ddns-go/bin/ddns-go
-  ui_print "- binary installed: /data/adb/ddns-go/bin/ddns-go"
+  ui_print "- 已安装程序: /data/adb/ddns-go/bin/ddns-go"
   if [ -f "$MODPATH/dg/core.version" ]; then
     cp -f "$MODPATH/dg/core.version" /data/adb/ddns-go/core.version
     ui_print "- $(head -n 3 /data/adb/ddns-go/core.version | tr '\n' ' ')"
   fi
 else
-  ui_print "- ERR: zip has no bundled binary (dg/bin/ddns-go)"
-  ui_print "- use GitHub Releases ddns-go-android-*.zip"
+  ui_print "- [ERR] zip 未内置 binary (dg/bin/ddns-go)"
+  ui_print "- 请使用 GitHub Releases 的 ddns-go-android-*.zip"
 fi
 
 if [ ! -f /data/adb/ddns-go/config/ddns_go_config.yaml ]; then
-  ui_print "- config dir ready: /data/adb/ddns-go/config"
-  ui_print "- first open web UI will create config"
+  ui_print "- 配置目录已就绪: /data/adb/ddns-go/config"
+  ui_print "- 首次打开 Web UI 后会生成配置"
 fi
 
-ui_print "- done"
-ui_print "- start:   sh /data/adb/ddns-go/start.sh"
-ui_print "- stop:    sh /data/adb/ddns-go/stop.sh"
-ui_print "- restart: sh /data/adb/ddns-go/restart.sh"
+ui_print "- 安装完成"
+ui_print "- 启动: sh /data/adb/ddns-go/start.sh"
+ui_print "- 停止: sh /data/adb/ddns-go/stop.sh"
+ui_print "- 重启: sh /data/adb/ddns-go/restart.sh"

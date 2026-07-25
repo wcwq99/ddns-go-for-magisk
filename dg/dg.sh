@@ -32,8 +32,8 @@ _ensure_dirs() {
 
 _check_bin() {
   if [ ! -x "$DG_BIN" ]; then
-    _err "missing binary: $DG_BIN
-reinstall Magisk module zip (binary is bundled by CI)"
+    _err "未找到可执行文件: $DG_BIN
+请重新刷入 Magisk 模块 zip（binary 由 CI 打进包内）"
   fi
 }
 
@@ -92,34 +92,34 @@ cmd_status() {
   _ensure_dirs
   if _is_running; then
     pid=$(_find_bin_pid)
-    _ok "ddns-go running (pid=$pid)"
+    _ok "ddns-go 运行中 (pid=$pid)"
   else
-    _warn "ddns-go stopped"
+    _warn "ddns-go 已停止"
   fi
   if [ -x "$DG_BIN" ]; then
     ver=$("$DG_BIN" -v 2>&1 | head -1)
     [ -z "$ver" ] && ver=$("$DG_BIN" --help 2>&1 | head -1)
-    _info "binary: $DG_BIN"
-    [ -n "$ver" ] && _info "version hint: $ver"
+    _info "程序: $DG_BIN"
+    [ -n "$ver" ] && _info "版本: $ver"
   else
-    _warn "binary missing: $DG_BIN (reinstall module zip)"
+    _warn "缺少程序: $DG_BIN（请重刷模块 zip）"
   fi
   if [ -f "$CORE_VER_FILE" ]; then
     _info "core.version: $(head -n 3 "$CORE_VER_FILE" | tr '\n' ' ')"
   fi
-  _info "config: $DG_CFG"
-  [ -f "$DG_CFG" ] && _info "config exists" || _warn "config not created yet (open web UI once)"
-  _info "web: http://127.0.0.1:${DG_LISTEN##*:}"
-  _info "listen: $DG_LISTEN"
-  _info "dns: $DG_DNS"
-  _info "home: $DG_HOME"
+  _info "配置: $DG_CFG"
+  [ -f "$DG_CFG" ] && _info "配置文件已存在" || _warn "配置尚未生成（请先打开 Web UI 初始化）"
+  _info "Web: http://127.0.0.1:${DG_LISTEN##*:}"
+  _info "监听: $DG_LISTEN"
+  _info "DNS: $DG_DNS"
+  _info "目录: $DG_HOME"
 }
 
 cmd_start() {
   _check_bin
   _ensure_dirs
   if _is_running; then
-    _warn "already running (pid=$(_find_bin_pid))"
+    _warn "已在运行 (pid=$(_find_bin_pid))"
     return 0
   fi
 
@@ -129,11 +129,11 @@ cmd_start() {
   echo $! >"$PID_FILE"
   sleep 1
   if _is_running; then
-    _ok "started (pid=$(cat "$PID_FILE"))"
-    _info "web UI: http://127.0.0.1:${DG_LISTEN##*:}"
-    _info "config: $DG_CFG"
+    _ok "已启动 (pid=$(cat "$PID_FILE"))"
+    _info "Web UI: http://127.0.0.1:${DG_LISTEN##*:}"
+    _info "配置: $DG_CFG"
   else
-    _err "start failed, see $DG_LOG/stdout.log"
+    _err "启动失败，详见 $DG_LOG/stdout.log"
   fi
 }
 
@@ -157,9 +157,9 @@ cmd_stop() {
   done
   rm -f "$PID_FILE"
   if [ "$stopped" = "1" ]; then
-    _ok "stopped"
+    _ok "已停止"
   else
-    _warn "not running"
+    _warn "当前未运行"
   fi
 }
 
@@ -178,42 +178,42 @@ cmd_log() {
       cat "$f"
     fi
   else
-    _warn "no log yet: $f"
+    _warn "暂无日志: $f"
   fi
 }
 
 cmd_config() {
   _ensure_dirs
-  _echo "config dir:  $DG_CFG_DIR"
-  _echo "config file: $DG_CFG"
+  _echo "配置目录: $DG_CFG_DIR"
+  _echo "配置文件: $DG_CFG"
   if [ -f "$DG_CFG" ]; then
-    _ok "config exists"
+    _ok "配置文件已存在"
     if command -v ls >/dev/null 2>&1; then
       ls -l "$DG_CFG" 2>/dev/null
     fi
   else
-    _warn "config not found — start service and open web UI to create"
+    _warn "尚未找到配置 — 请启动服务并打开 Web UI 完成初始化"
   fi
-  _echo "other files in config/:"
+  _echo "config/ 目录其他文件:"
   found=0
   for f in "$DG_CFG_DIR"/*; do
     [ -f "$f" ] || continue
     _echo "  $(basename "$f")"
     found=1
   done
-  [ "$found" = "0" ] && _echo "  (empty)"
+  [ "$found" = "0" ] && _echo "  (空)"
 }
 
 cmd_help() {
   cat <<EOF
-ddns-go Magisk manager $SCRIPT_VER
-Home:   $DG_HOME
-Binary: $DG_BIN  (bundled in module zip by CI)
-Config: $DG_CFG
-Listen: $DG_LISTEN
-DNS:    $DG_DNS  (override: DG_DNS=8.8.8.8)
+ddns-go Magisk 管理脚本 $SCRIPT_VER
+目录:   $DG_HOME
+程序:   $DG_BIN  (由 CI 打进模块 zip)
+配置:   $DG_CFG
+监听:   $DG_LISTEN
+DNS:    $DG_DNS  (可覆盖: DG_DNS=8.8.8.8)
 
-用法: sh $DG_HOME/dg.sh <command>
+用法: sh $DG_HOME/dg.sh <命令>
   start | stop | restart | status | log | config
 
 独立脚本:

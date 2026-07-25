@@ -12,5 +12,5 @@ if [ -f "$HERE/dg.sh" ]; then
   exec /system/bin/sh "$HERE/dg.sh" stop
 fi
 
-printf '%s\n' "[ERR] dg.sh not found" >&2
+printf '%s\n' "[ERR] 未找到 dg.sh" >&2
 exit 1
