@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# Build Magisk zips with ddns-go for Android.
+# Cloud / CI release builder for Magisk zips.
+# Intended to run on GitHub Actions (ubuntu-latest + Go + Android NDK).
+# Local machines should NOT cross-compile; push to main and let CI publish.
+#
 # Output:
 #   dist/ddns-go-android-arm64.zip   # official GitHub android_arm64 asset
-#   dist/ddns-go-android-armv7a.zip  # self-built GOOS=android GOARCH=arm GOARM=7
+#   dist/ddns-go-android-armv7a.zip  # GOOS=android GOARCH=arm GOARM=7 via NDK
 #                                   # (upstream does not publish android_arm)
 #
-# Usage:
-#   ./build-release.sh
-#   ./build-release.sh v6.17.2
-#   PROXY=https://ghfast.top/ ./build-release.sh
+# Env:
+#   CORE_VER / $1     ddns-go tag (empty = latest)
+#   MODULE_VER        module version (default v1.0.0)
+#   MODULE_CODE       module versionCode (default 100)
+#   ANDROID_NDK_HOME  required for armv7a
+#   PROXY             optional download proxy base (https://ghfast.top/)
 
 set -euo pipefail
 
@@ -20,6 +25,7 @@ MODULE_VER="${MODULE_VER:-v1.0.0}"
 MODULE_CODE="${MODULE_CODE:-100}"
 CORE_VER="${1:-${CORE_VER:-}}"
 PROXY="${PROXY:-}"
+ANDROID_API="${ANDROID_API:-21}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -63,6 +69,46 @@ build_url() {
   else
     echo "${proxy}${gh_url}"
   fi
+}
+
+resolve_ndk() {
+  if [ -n "${ANDROID_NDK_HOME:-}" ] && [ -d "$ANDROID_NDK_HOME" ]; then
+    echo "$ANDROID_NDK_HOME"
+    return 0
+  fi
+  if [ -n "${ANDROID_NDK_ROOT:-}" ] && [ -d "$ANDROID_NDK_ROOT" ]; then
+    echo "$ANDROID_NDK_ROOT"
+    return 0
+  fi
+  # setup-ndk / common CI layouts
+  for d in \
+    "$HOME/android-ndk" \
+    /usr/local/lib/android/sdk/ndk-bundle \
+    /usr/local/lib/android/sdk/ndk/*
+  do
+    if [ -d "$d" ]; then
+      echo "$d"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_ndk_clang() {
+  # $1=ndk root  -> print armv7a clang path
+  ndk="$1"
+  prebuilt=""
+  for host in linux-x86_64 windows-x86_64 darwin-x86_64; do
+    if [ -d "$ndk/toolchains/llvm/prebuilt/$host" ]; then
+      prebuilt="$ndk/toolchains/llvm/prebuilt/$host"
+      break
+    fi
+  done
+  [ -n "$prebuilt" ] || return 1
+  clang="$prebuilt/bin/armv7a-linux-androideabi${ANDROID_API}-clang"
+  [ -x "$clang" ] || clang="$prebuilt/bin/armv7a-linux-androideabi${ANDROID_API}-clang.cmd"
+  [ -e "$clang" ] || return 1
+  echo "$clang"
 }
 
 PROXY="$(normalize_proxy "$PROXY")"
@@ -118,8 +164,8 @@ download_with_fallback() {
 }
 
 pack_one() {
-  local abi="$1"       # arm64 | armv7a
-  local core_arch="$2" # android_arm64 | android_armv7
+  local abi="$1"
+  local core_arch="$2"
   local source_note="$3"
   local bin_path="$4"
   local stage="$WORK/stage-${abi}"
@@ -191,17 +237,38 @@ BIN64="$(find "$EXTRACT" -type f -name ddns-go | head -1)"
 }
 pack_one "arm64" "android_arm64" "github_release_android_arm64" "$BIN64"
 
-# ---- armv7a: self-build (upstream ignores android/arm) ----
+# ---- armv7a: cloud-only NDK cross compile ----
+# GOOS=android GOARCH=arm needs external (cgo) linking + NDK clang.
+NDK_HOME="$(resolve_ndk || true)"
+[[ -n "$NDK_HOME" ]] || {
+  echo "[ERR] ANDROID_NDK_HOME not set / NDK not found." >&2
+  echo "      This script is for CI cloud builds only." >&2
+  echo "      Push to GitHub Actions; do not cross-compile on local Windows." >&2
+  exit 1
+}
+CLANG="$(find_ndk_clang "$NDK_HOME" || true)"
+[[ -n "$CLANG" ]] || {
+  echo "[ERR] armv7a NDK clang not found under $NDK_HOME (API ${ANDROID_API})" >&2
+  exit 1
+}
+echo "[*] NDK=$NDK_HOME"
+echo "[*] CC=$CLANG"
+
 SRC="$WORK/src"
 echo "[*] clone ${CORE_REPO} @${CORE_VER} for armv7a build..."
 git clone --depth 1 --branch "$CORE_VER" "https://github.com/${CORE_REPO}.git" "$SRC"
 
 BIN32="$WORK/ddns-go-armv7a"
-echo "[*] go build android/arm GOARM=7 ..."
+echo "[*] go build android/arm GOARM=7 (CGO + NDK) ..."
 (
   cd "$SRC"
-  CGO_ENABLED=0 GOOS=android GOARCH=arm GOARM=7 \
-    go build -trimpath -ldflags "-s -w -X main.version=${CORE_VER}" -o "$BIN32" .
+  export CGO_ENABLED=1
+  export GOOS=android
+  export GOARCH=arm
+  export GOARM=7
+  export CC="$CLANG"
+  export CXX="${CLANG}++"
+  go build -trimpath -ldflags "-s -w -X main.version=${CORE_VER}" -o "$BIN32" .
 )
 [[ -f "$BIN32" ]] || {
   echo "[ERR] go build android/arm failed" >&2
@@ -210,7 +277,7 @@ echo "[*] go build android/arm GOARM=7 ..."
 if command -v file >/dev/null 2>&1; then
   file "$BIN32" || true
 fi
-pack_one "armv7a" "android_armv7" "self_build_goos_android_goarch_arm_goarm7" "$BIN32"
+pack_one "armv7a" "android_armv7" "ci_ndk_goos_android_goarch_arm_goarm7" "$BIN32"
 
 cat >"$DIST/build-manifest.txt" <<EOF
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -220,8 +287,8 @@ core_repo=${CORE_REPO}
 core_version=${CORE_VER}
 artifacts:
   ddns-go-android-arm64.zip   # official GitHub android_arm64
-  ddns-go-android-armv7a.zip  # self-built GOOS=android GOARCH=arm GOARM=7
-note: upstream only ships android_arm64. armv7a is cross-compiled from the same tag. Install only ONE abi package (same module id=ddns-go). Device install does not download. Runtime update via update.sh supports proxy.
+  ddns-go-android-armv7a.zip  # CI NDK: GOOS=android GOARCH=arm GOARM=7
+note: Packaging is cloud-only (GitHub Actions). Local machines should not cross-compile. Install only ONE abi package (same module id=ddns-go).
 EOF
 
 echo

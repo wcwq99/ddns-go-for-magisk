@@ -42,6 +42,14 @@ jobs:
         with:
           go-version: "1.25.x"
 
+      # armv7a: GOOS=android GOARCH=arm needs NDK external linking
+      - name: setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26b
+          add-to-path: false
+
       - name: resolve versions
         id: ver
         env:
@@ -69,13 +77,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "module=$MODULE_VER code=$MODULE_CODE tag=$TAG core=${CORE_VER:-latest}"
 
-      - name: build arm64 + armv7a zips
+      - name: build arm64 + armv7a zips (cloud only)
         env:
           MODULE_VER: ${{ steps.ver.outputs.module_ver }}
           MODULE_CODE: ${{ steps.ver.outputs.module_code }}
           CORE_VER: ${{ steps.ver.outputs.core_ver }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          set -euo pipefail
           chmod +x build-release.sh
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
           ./build-release.sh
 
       - name: upload artifacts

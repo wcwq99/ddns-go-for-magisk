@@ -18,7 +18,7 @@
 | ABI | 来源 |
 |-----|------|
 | **arm64** | GitHub 官方 `android_arm64` 资源（bionic / linker64） |
-| **armv7a** | 上游 **不发布** `android_arm`；打包时用 `GOOS=android GOARCH=arm GOARM=7` 从同 tag 源码交叉编译 |
+| **armv7a** | 上游 **不发布** `android_arm`；**仅 CI** 用 Android NDK + `GOOS=android GOARCH=arm GOARM=7` 交叉编译 |
 
 > 不要用 `linux_arm64` / `linux_armv7`（glibc），在 Android 上会直接无法启动。
 
@@ -44,24 +44,13 @@
 
 ### 方式 A：Magisk 刷入（推荐）
 
-1. 电脑打包：
+**正式包只在云端（GitHub Actions）打包**，本地不交叉编译。
 
-```powershell
-# Windows（需要 Go，用于 armv7a 交叉编译）
-.\build-release.ps1
-.\build-release.ps1 -CoreVer v6.17.2
-.\build-release.ps1 -Proxy https://ghfast.top/
-```
-
-```bash
-# Linux / macOS / Git Bash
-./build-release.sh
-./build-release.sh v6.17.2
-PROXY=https://ghfast.top/ ./build-release.sh
-```
-
-2. 按 CPU 选包：`arm64`（64 位）或 `armv7a`（32 位）  
-3. Magisk → 模块 → 从本地安装 → 重启  
+1. 推送 `main` 后自动触发 `Android Module` workflow；也可在 Actions 里手动 Run workflow  
+2. 从 [Releases](../../releases) 或 Actions Artifact 下载：
+   - `ddns-go-android-arm64.zip`
+   - `ddns-go-android-armv7a.zip`
+3. 按 CPU 选一个刷入 → 重启  
 4. 使用：
 
 ```bash
@@ -70,12 +59,13 @@ sh /data/adb/ddns-go/menu.sh
 sh /data/adb/ddns-go/start.sh
 ```
 
-> **只装一个 ABI 包**。两个 zip 的 Magisk `id` 相同（`ddns-go`），后装覆盖前装。
+> **只装一个 ABI 包**。两个 zip 的 Magisk `id` 相同（`ddns-go`），后装覆盖前装。  
+> 本地 `.\build-release.ps1` 仅提示走云端；`build-release.sh` 给 CI 使用（需 NDK）。
 
 ### 方式 B：无 core 脚本包 + 手机端 update（仅 arm64）
 
 ```powershell
-.\pack.ps1   # 生成 dist/ddns-go-android-nocore.zip
+.\pack.ps1   # 生成 dist/ddns-go-android-nocore.zip（调试用，无 binary）
 ```
 
 刷入后（**arm64 设备**）：
@@ -85,7 +75,7 @@ sh /data/adb/ddns-go/update.sh
 sh /data/adb/ddns-go/start.sh
 ```
 
-> armv7a 无法从 GitHub 在线更新官方 android 包，请用 `build-release` 产物刷入。
+> armv7a 无法从 GitHub 在线更新官方 android 包，请刷 CI 产物。
 
 ## 使用
 
@@ -173,9 +163,9 @@ ddns-go-for-magisk/
   dg/
     dg.sh menu.sh start.sh stop.sh restart.sh update.sh
     bin/ddns-go          # 仅正式包存在
-  pack.ps1 / pack.sh
-  build-release.ps1 / build-release.sh
-  dist/
+  pack.ps1 / pack.sh              # 本地仅脚本包（无 binary）
+  build-release.sh                # 仅 CI 云端双架构打包
+  build-release.ps1               # 本地禁用，提示走 Actions
   .github/workflows/android-module.yml
 ```
 
