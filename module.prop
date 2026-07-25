@@ -1,0 +1,6 @@
+id=ddns-go
+name=ddns-go
+version=v1.0.0
+versionCode=100
+author=wcwq99
+description=ddns-go Magisk module (arm64/armv7a). menu: /data/adb/ddns-go/menu.sh

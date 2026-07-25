@@ -1,0 +1,104 @@
+name: Android Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      core_ver:
+        description: "ddns-go version (empty = latest), e.g. v6.17.2"
+        required: false
+        default: ""
+      module_ver:
+        description: "module version tag (used for release name)"
+        required: false
+        default: "v1.0.0"
+  push:
+    branches: [main]
+    paths:
+      - "dg/**"
+      - "META-INF/**"
+      - "customize.sh"
+      - "service.sh"
+      - "uninstall.sh"
+      - "module.prop"
+      - "build-release.sh"
+      - "build-release.ps1"
+      - "pack.sh"
+      - "pack.ps1"
+      - "README.md"
+      - ".github/workflows/android-module.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: resolve versions
+        id: ver
+        env:
+          INPUT_MODULE_VER: ${{ github.event.inputs.module_ver }}
+          INPUT_CORE_VER: ${{ github.event.inputs.core_ver }}
+        run: |
+          set -euo pipefail
+          MODULE_VER="${INPUT_MODULE_VER:-}"
+          if [ -z "$MODULE_VER" ]; then
+            MODULE_VER=$(grep -E '^version=' module.prop | head -1 | cut -d= -f2)
+          fi
+          MODULE_VER="${MODULE_VER:-v1.0.0}"
+          MODULE_CODE=$(grep -E '^versionCode=' module.prop | head -1 | cut -d= -f2)
+          MODULE_CODE="${MODULE_CODE:-100}"
+          CORE_VER="${INPUT_CORE_VER:-}"
+          TAG="android-module-${MODULE_VER}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="android-module-${MODULE_VER}-r${{ github.run_number }}"
+          fi
+          {
+            echo "module_ver=$MODULE_VER"
+            echo "module_code=$MODULE_CODE"
+            echo "core_ver=$CORE_VER"
+            echo "tag=$TAG"
+          } >> "$GITHUB_OUTPUT"
+          echo "module=$MODULE_VER code=$MODULE_CODE tag=$TAG core=${CORE_VER:-latest}"
+
+      - name: build arm64 + armv7a zips
+        env:
+          MODULE_VER: ${{ steps.ver.outputs.module_ver }}
+          MODULE_CODE: ${{ steps.ver.outputs.module_code }}
+          CORE_VER: ${{ steps.ver.outputs.core_ver }}
+        run: |
+          chmod +x build-release.sh
+          ./build-release.sh
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ddns-go-android-modules
+          path: |
+            dist/ddns-go-android-arm64.zip
+            dist/ddns-go-android-armv7a.zip
+            dist/build-manifest.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: create GitHub Release with zips
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Android Module ${{ steps.ver.outputs.module_ver }}
+          body_path: dist/build-manifest.txt
+          files: |
+            dist/ddns-go-android-arm64.zip
+            dist/ddns-go-android-armv7a.zip
+            dist/build-manifest.txt
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
